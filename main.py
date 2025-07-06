@@ -1,1 +1,2 @@
-print("KupleBot")
+print("KupleBot") #-
+#compotick
