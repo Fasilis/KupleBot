@@ -30,7 +30,7 @@ async def manual_refund(message: types.Message):
                 result_api = await resp.json()
 
         if result_api.get("ok"):
-            supabase.table("payments").update({"refunded": True}).eq("charge_id", charge_id).execute()
+            supabase.table("payments").update({"refunded": True, "type": "refund"}).eq("charge_id", charge_id).execute()
             await message.answer("Рефанд выполнен успешно.")
         else:
             await message.answer(f"Ошибка при рефанде: {result_api.get('description')}")

@@ -1,14 +1,17 @@
-from aiogram import Router, types
+from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.types import (
     ReplyKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardRemove,
     InlineKeyboardMarkup,
-    InlineKeyboardButton,
+    InlineKeyboardButton
 )
 from bot import supabase
-from handlers.callbacks import RefundCallback
+
+
+
+
 
 router = Router()
 
@@ -40,28 +43,13 @@ async def handle_user_menu(message: types.Message):
 
     elif message.text == "💳 История транз":
         try:
-            result = supabase.table("payments").select("*") \
-                .eq("user_id", user_id).order("created_at", desc=True).execute()
-            if not result.data:
-                return await message.answer("Нету транзакций")
+            markup = InlineKeyboardMarkup(inline_keyboard=[])
+            buttons_row_1 = [InlineKeyboardButton(text='Пополнения', callback_data='transaction_type:deposit')]
+            buttons_row_2 = [InlineKeyboardButton(text='Покупки', callback_data='transaction_type:purchase'), InlineKeyboardButton(text='Возвраты', callback_data='transaction_type:refund')]
+            markup.inline_keyboard.append(buttons_row_1)
+            markup.inline_keyboard.append(buttons_row_2)
+            await message.answer("Выбери тип транзакций:", reply_markup=markup)
 
-            lines = []
-            buttons = []
-
-            for i, tx in enumerate(result.data[:10]):
-                status = "РЕФНУТО ❌" if tx["refunded"] else "АКТИВНА ✅"
-                lines.append(f"• {tx['stars']} ⭐ — {status}")
-                if not tx["refunded"]:
-                    buttons.append([
-                        InlineKeyboardButton(
-                            text=f"Рефнуть {tx['stars']}⭐",
-                            callback_data=RefundCallback(tx_index=i).pack()
-                        )
-                    ])
-
-            text = "💳 История:\n" + "\n".join(lines)
-            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
-            await message.answer(text, reply_markup=keyboard)
 
         except Exception as e:
             print(f"Ошибка показа истории: {e}")

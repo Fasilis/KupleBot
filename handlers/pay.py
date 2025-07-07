@@ -53,8 +53,9 @@ async def successful_payment_handler(message: types.Message):
 
     supabase.table("payments").insert({
         "user_id": user_id,
+        "type": "deposit", 
         "charge_id": charge_id,
-        "stars": stars,
+        "stars": stars, 
         "refunded": False
     }).execute()
 
