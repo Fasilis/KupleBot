@@ -1,6 +1,6 @@
 from aiogram import Router, types
 from aiogram.filters import Command
-from bot import bot
+from bot import bot, supabase
 
 from aiogram.enums import ParseMode
 
@@ -30,8 +30,10 @@ async def cmd_send_gift(message: types.Message):
         return await message.answer("Использование: /send <user_id> <gift_id>")
 
     try:
+        gifts = await bot.get_available_gifts()
         user_id = int(args[1])
         gift_id = args[2]
+        stars = next((s for s in gifts.gifts if s["id"] == gift_id), None).star_count
 
         ok = await bot.send_gift(
             user_id=user_id,
@@ -41,6 +43,13 @@ async def cmd_send_gift(message: types.Message):
 
         if ok:
             await message.reply("Подарок отправлен!")
+            supabase.table("payments").insert({
+                "user_id": user_id,
+                "type": "deposit", 
+                "charge_id": None,
+                "stars": stars, 
+                "refunded": False
+            }).execute()
         else:
             await message.reply("Не удалось отправить подарок.")
     except Exception as e:
