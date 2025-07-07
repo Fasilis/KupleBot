@@ -51,5 +51,12 @@ def build_buttons(page: int, items: List, callback: str, make_text_func, items_p
 
 
 def make_tx_text(txs):
-    """Generate text for transaction buttons"""
-    return [f"{'+' if tx['type'] == 'deposit' else '-'}{tx['stars']}⭐️ | {tx['type']}" for tx in txs]
+    type = {
+        'deposit': 'Депозит',
+        'refund': 'Возврат',
+        'purchase': 'Покупка'
+    }
+    return [
+        f"{'+' if tx['type'] == 'deposit' else '-'}{tx['stars']}⭐️ | {type.get(tx['type'], tx['type'])}"
+        for tx in txs
+    ]
