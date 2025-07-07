@@ -14,7 +14,7 @@ async def start_handler(message: types.Message):
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💸 Пополнить баланс", callback_data="stub_view")],
+        [InlineKeyboardButton(text="💸 Пополнить баланс", callback_data="stub_pay")],
         [InlineKeyboardButton(text="👨‍🏫 Мои профиль", callback_data="stub_profile")],
         [InlineKeyboardButton(text="⚙️ Настройки фильтров", callback_data="stub_settings")]
     ])

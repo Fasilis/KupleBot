@@ -60,7 +60,7 @@ async def successful_payment_handler(message: types.Message):
 
     await message.answer(f"Оплачено {stars} звёзд.")
     
-@router.callback_query(lambda c: c.data == "stub_view")
+@router.callback_query(lambda c: c.data == "stub_pay")
 async def callback_topup_handler(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.delete()
     await callback.message.answer("Сколько звёзд пополнить?")
