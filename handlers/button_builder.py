@@ -8,7 +8,6 @@ from typing import List
 
 def build_buttons(page: int, items: List, callback: str, make_text_func, items_per_page: int,
                   columns: int) -> InlineKeyboardMarkup:
-    """Build paginated inline keyboard buttons"""
     start_idx = page * items_per_page
     end_idx = start_idx + items_per_page
     builder = InlineKeyboardMarkup(inline_keyboard=[])
@@ -24,12 +23,10 @@ def build_buttons(page: int, items: List, callback: str, make_text_func, items_p
         
         buttons.append(InlineKeyboardButton(text=text, callback_data=f"{callback}{item_id}"))
 
-    # Add buttons in rows
     for i in range(0, len(buttons), columns):
         row = buttons[i:i + columns]
         builder.inline_keyboard.append(row)
 
-    # Navigation buttons
     total_pages = (len(items) + items_per_page - 1) // items_per_page
     nav_buttons = []
 
