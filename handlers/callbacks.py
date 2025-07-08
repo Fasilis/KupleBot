@@ -3,28 +3,27 @@ from aiogram import Router, types, F
 from bot import supabase, BOT_TOKEN
 
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime
 from handlers.button_builder import build_buttons, make_tx_text
 
 router = Router()
 
 class RefundCallback(CallbackData, prefix="refund"):
-    tx_index: int
+    tx_id: str
 
 @router.callback_query(RefundCallback.filter())
 async def handle_specific_refund(callback: types.CallbackQuery, callback_data: RefundCallback):
     user_id = callback.from_user.id
-    tx_index = callback_data.tx_index
+    tx_id = callback_data.tx_id
 
     result = supabase.table("payments").select("*") \
         .eq("user_id", user_id).order("created_at", desc=True).limit(10).execute()
-    data = result.data
+    tx = next((tx for tx in result.data if tx["id"] == tx_id), None)
 
-    if not data or tx_index >= len(data):
+    if not tx:
         return await callback.answer("Транзакция не найдена.", show_alert=True)
 
-    tx = data[tx_index]
 
     if tx["refunded"]:
         return await callback.answer("Эта транзакция уже рефнута.", show_alert=True)
@@ -43,7 +42,7 @@ async def handle_specific_refund(callback: types.CallbackQuery, callback_data: R
                 result_api = await response.json()
 
         if result_api.get("ok"):
-            supabase.table("payments").update({"refunded": True}).eq("charge_id", charge_id).execute()
+            supabase.table("payments").update({"refunded": True, "type":"refund"}).eq("charge_id", charge_id).execute()
             await callback.message.edit_text(f"Рефнуто {tx['stars']}⭐")
         else:
             error_msg = result_api.get("description", "Ошибка при возврате средств")
@@ -66,7 +65,6 @@ async def handle_transaction_list(callback: CallbackQuery):
     if not result.data:
         return await callback.answer("Нету транзакций")
     
-    # Pass the transaction type to build_buttons for navigation
     markup = build_buttons(0, result.data, f"transaction_{tx_type}:", make_tx_text, 8, 2)
     await callback.message.answer("Ваши транзакции:", reply_markup=markup)
 
@@ -76,7 +74,6 @@ async def handle_transaction_list(callback: CallbackQuery):
 async def handle_navigation(callback: CallbackQuery):
     """Handle navigation callbacks"""
     user_id = callback.from_user.id
-
     data = callback.data[len("nav_"):]
     if ":" not in data:
         await callback.answer("❌ Неверные данные навигации.")
@@ -85,20 +82,17 @@ async def handle_navigation(callback: CallbackQuery):
     callback_prefix, page = data.rsplit(":", 1)
     page = int(page)
 
-    # Extract transaction type from callback_prefix if it exists
     if callback_prefix.startswith("transaction_"):
         if "_" in callback_prefix:
-            # Format: transaction_deposit: or transaction_withdraw:
             tx_type = callback_prefix.split("_")[1].rstrip(":")
             result = supabase.table("payments").select("*") \
-                .eq("user_id", callback.message.chat.id) \
+                .eq("user_id", user_id) \
                 .eq("type", tx_type) \
                 .order("created_at", desc=True).execute()
             markup = build_buttons(page, result.data, f"transaction_{tx_type}:", make_text_func=make_tx_text, items_per_page=8, columns=2)
         else:
-            # Fallback to all transactions
             result = supabase.table("payments").select("*") \
-                .eq("user_id", callback.message.chat.id).order("created_at", desc=True).execute()
+                .eq("user_id", user_id).order("created_at", desc=True).execute()
             markup = build_buttons(page, result.data, "transaction:", make_text_func=make_tx_text, items_per_page=8, columns=2)
     else:
         await callback.answer("❌ Невозможно отобразить.")
@@ -110,13 +104,9 @@ async def handle_navigation(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("transaction"))
 async def handle_transaction_item(callback: CallbackQuery):
-    """Handle transaction item callback"""
-    # Handle both formats: transaction:id and transaction_type:id
     if callback.data.startswith("transaction_"):
-        # Format: transaction_deposit:id
         tx_id = callback.data.split(":", 1)[1]
     else:
-        # Format: transaction:id
         tx_id = callback.data.split(":", 1)[1]
     
     result = supabase.table("payments").select("*") \
@@ -126,8 +116,14 @@ async def handle_transaction_item(callback: CallbackQuery):
     if not result.data:
         await callback.answer("❌ Транзакция не найдена.")
         return
-        
+    
     tx = result.data[0]
+
+    markup = InlineKeyboardMarkup(inline_keyboard=[])
+    if not tx.get('refunded'):
+        markup.inline_keyboard.append([
+            InlineKeyboardButton(text="🔁 Вернуть звёзды", callback_data=RefundCallback(tx_id=tx['id']).pack())
+        ])
 
     date = datetime.fromisoformat(tx['created_at']).strftime("%d.%m.%Y %H:%M") 
     text = ""
@@ -137,7 +133,6 @@ async def handle_transaction_item(callback: CallbackQuery):
     text += (
         f"💰 Сумма: {tx['stars']}⭐️\n"
         f"📅 Дата: {date} UTC\n"
-        f"📄 Описание: {tx.get('description', '—')}\n"
     )
 
     if tx.get('type') == "deposit":
@@ -146,5 +141,6 @@ async def handle_transaction_item(callback: CallbackQuery):
     await callback.message.edit_text(
         text=text,
         parse_mode="Markdown",
+        reply_markup=markup
     )
     await callback.answer()
