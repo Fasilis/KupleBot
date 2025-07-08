@@ -174,7 +174,11 @@ async def show_filtered_gifts(callback: types.CallbackQuery):
 
         if not filtered:
             text = "❗ Нет подарков в этом диапазоне.\n\n" + format_filters(filt)
-            return await callback.message.answer(text)
+            back_markup = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="stub_settings")]
+            ])
+            return await callback.message.answer(text, reply_markup=back_markup)
+
 
         lines = [f"*Подарки от {filt.get('min', 0)} до {filt.get('max', 9999)} ⭐:*", ""]
         for i, (gift, price) in enumerate(filtered, 1):
