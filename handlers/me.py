@@ -4,6 +4,7 @@ from aiogram.types import (InlineKeyboardMarkup,
                            InlineKeyboardButton, 
                            ReplyKeyboardRemove)
 from bot import supabase
+from handlers.start import get_start_menu
 
 router = Router()
 
@@ -51,3 +52,7 @@ async def handle_user_menu_callback(callback: types.CallbackQuery):
         except Exception as e:
             print(f"Ошибка показа истории: {e}")
             await callback.message.edit_text("Беда, не вижу историю")
+            
+    elif data == "Выйти":
+        text, keyboard = get_start_menu()
+        await callback.message.edit_text(text, reply_markup=keyboard)

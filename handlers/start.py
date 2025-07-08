@@ -4,8 +4,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 router = Router()
 
-@router.message(CommandStart())
-async def start_handler(message: types.Message):
+def get_start_menu():
     text = (
         "👋 Добро пожаловать!\n\n"
         "Этот бот предназначен для автоматической скупки подарков.\n\n"
@@ -19,4 +18,9 @@ async def start_handler(message: types.Message):
         [InlineKeyboardButton(text="⚙️ Настройки фильтров", callback_data="stub_settings")]
     ])
 
+    return text, keyboard
+
+@router.message(CommandStart())
+async def start_handler(message: types.Message):
+    text, keyboard = get_start_menu()
     await message.answer(text, reply_markup=keyboard)
