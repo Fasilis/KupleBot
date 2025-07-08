@@ -77,7 +77,7 @@ async def send_filter_menu(target: types.Message | types.CallbackQuery):
     
 @router.callback_query(F.data == "set_price_range")
 async def ask_price_range(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("Введите диапазон цен в формате `10-50` (звёзды):", parse_mode=ParseMode.MARKDOWN)
+    await callback.message.edit_text("Введите диапазон цен в формате `10-50`⭐:", parse_mode=ParseMode.MARKDOWN)
     await state.set_state(FilterStates.waiting_price_range)
 
 @router.message(FilterStates.waiting_price_range)
@@ -135,7 +135,7 @@ async def receive_emission_range(message: types.Message, state: FSMContext):
 
         await message.answer(f"Эмиссия установлена: от {min_em} до {max_em}")
     except ValueError:
-        await message.answer("Неверный формат. Введите диапазон как `100-500`.")
+        await message.answer("Неверный формат. Введите диапазон как `100-1000`")
         return
 
     await state.clear()
@@ -158,7 +158,7 @@ async def show_filtered_gifts(callback: types.CallbackQuery):
 
         for gift in gifts.gifts:
             price = getattr(gift, "price", None) or getattr(gift, "star_count", 0)
-            if not (filt.get("min", 0) <= price <= filt.get("max", 9999999)):
+            if not (filt.get("min_price", 0) <= price <= filt.get("max_price", 9999999)):
                 continue
 
             if filt.get("only_limited"):
@@ -180,7 +180,7 @@ async def show_filtered_gifts(callback: types.CallbackQuery):
             return await callback.message.answer(text, reply_markup=back_markup)
 
 
-        lines = [f"*Подарки от {filt.get('min', 0)} до {filt.get('max', 9999)} ⭐:*", ""]
+        lines = [f"*Подарки от {filt.get('min_price', 0)} до {filt.get('max_price', 9999)} ⭐:*", ""]
         for i, (gift, price) in enumerate(filtered, 1):
             emoji = gift.sticker.emoji if gift.sticker else "🎁"
             lines.append(f"{i}. {emoji}  `{gift.id}` — ⭐ {price}")
