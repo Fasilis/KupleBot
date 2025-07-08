@@ -57,3 +57,19 @@ async def handle_user_menu(message: types.Message):
 
     elif message.text == "🔙 Выйти":
         await message.answer("Скрыто", reply_markup=ReplyKeyboardRemove())
+
+@router.callback_query(lambda c: c.data == "stub_profile")
+async def stub_profile_handler(callback: types.CallbackQuery):
+    # Покажем меню "Мой профиль"
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="💸 Балик")],
+            [KeyboardButton(text="💳 История транз")],
+            [KeyboardButton(text="🔙 Выйти")]
+        ],
+        resize_keyboard=True
+    )
+    await callback.message.delete()
+    await callback.message.answer("Личный кабинет", reply_markup=kb)
+    await callback.answer()
+    
