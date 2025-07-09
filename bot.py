@@ -9,7 +9,7 @@ dp = Dispatcher()
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-from handlers import pay, me, refund, gifts, callbacks, start, filter
+from handlers import pay, me, refund, gifts, callbacks, start, filter, detect
 
 def setup_routers(dp: Dispatcher):
     dp.include_router(pay.router)
@@ -19,6 +19,7 @@ def setup_routers(dp: Dispatcher):
     dp.include_router(callbacks.router)
     dp.include_router(start.router)
     dp.include_router(filter.router)
+    dp.include_router(detect.router)
 
 async def main():
     setup_routers(dp)

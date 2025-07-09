@@ -29,6 +29,25 @@ def save_filter(user_id: int, updates: dict):
     supabase.table("user_filters").update(updates).eq("user_id", user_id).execute()
 
 
+
+async def load_info(user_id: int) -> dict:
+    result = supabase.table("user_info").select("*").eq("user_id", user_id).execute()
+    if result.data:
+        return result.data[0]
+    else:
+        default = {
+            "user_id": user_id,
+            "notif_enabled": False,
+            "balance": 0
+        }
+        supabase.table("user_info").insert(default).execute()
+        return default
+
+def save_info(user_id: int, updates: dict):
+    supabase.table("user_info").update(updates).eq("user_id", user_id).execute()
+
+
+
 class FilterStates(StatesGroup):
     waiting_price_range = State()
     waiting_emission_range = State()
@@ -46,8 +65,7 @@ async def exit_to_main(callback: types.CallbackQuery):
 async def toggle_limited_filter(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     filt = await load_filter(user_id)
-    new_value = not filt.get("only_limited", False)
-
+    new_value = not filt.get("only_limited", False)    
     save_filter(user_id, {"only_limited": new_value})
     await send_filter_menu(callback)
 
@@ -55,14 +73,17 @@ async def toggle_limited_filter(callback: types.CallbackQuery):
 async def send_filter_menu(target: types.Message | types.CallbackQuery):
     user_id = target.from_user.id if isinstance(target, types.CallbackQuery) else target.from_user.id
     filt = await load_filter(user_id) 
+    info = await load_info(user_id)
 
     only_limited = filt.get("only_limited", False)
+    notif_enabled = info.get("notif_enabled", False)
 
     markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✏️ Задать диапазон цен", callback_data="set_price_range")],
         [InlineKeyboardButton(text="💎 Редкие: ✅" if only_limited else "🎯 Редкие: ❌", callback_data="toggle_limited")],
         [InlineKeyboardButton(text="✒️ Задать эмиссию", callback_data="set_emission")],
         [InlineKeyboardButton(text="🔍 Показать подарки", callback_data="show_filtered_gifts")],
+        [InlineKeyboardButton(text=f"{'🔔' if notif_enabled else '🔕'} Обнаружение новых подарков", callback_data="toggle_notif")],
         [InlineKeyboardButton(text="🔙 Выйти", callback_data="exit_to_main")]
     ])
 
@@ -198,6 +219,16 @@ async def show_filtered_gifts(callback: types.CallbackQuery):
     except Exception as e:
         print(f"Ошибка при показе подарков: {e}")
         await callback.message.answer("Не удалось получить подарки.")
+
+
+
+@router.callback_query(F.data == "toggle_notif")
+async def toggle_notif(callback: types.CallbackQuery):
+    user_id = callback.message.chat.id
+    info = await load_info(user_id)
+    new_value = not info.get("notif_enabled", False)
+    save_info(user_id, {"notif_enabled": new_value})
+    await send_filter_menu(callback)
 
         
 def format_filters(filt: dict) -> str:

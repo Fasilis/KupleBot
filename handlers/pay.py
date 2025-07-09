@@ -6,6 +6,7 @@ from aiogram.types import LabeledPrice
 
 from bot import bot, supabase
 from config import PROVIDER_TOKEN
+from handlers.filter import load_info, save_info
 
 router = Router()
 
@@ -58,6 +59,10 @@ async def successful_payment_handler(message: types.Message):
         "stars": stars, 
         "refunded": False
     }).execute()
+
+    info = await load_info(user_id)
+    updated_balance = info['balance'] + stars
+    save_info(user_id, {"balance": updated_balance})
 
     await message.answer(f"Оплачено {stars} звёзд.")
     
