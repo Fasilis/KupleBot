@@ -6,7 +6,9 @@ from aiogram.types import LabeledPrice, InlineKeyboardMarkup, InlineKeyboardButt
 
 from bot import bot, supabase
 from config import PROVIDER_TOKEN
+
 from handlers.start import send_start_menu 
+from handlers.filter import load_info, save_info
 
 router = Router()
 
@@ -81,5 +83,18 @@ async def successful_payment_handler(message: types.Message):
         "refunded": False
     }).execute()
 
+
+    info = await load_info(user_id)
+    updated_balance = info['balance'] + stars
+    save_info(user_id, {"balance": updated_balance})
+
     await message.answer(f"Оплачено {stars} ⭐️")
     await send_start_menu(message, with_banner=True)
+    
+@router.callback_query(lambda c: c.data == "stub_pay")
+async def callback_topup_handler(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.delete()
+    await callback.message.answer("Сколько звёзд пополнить?")
+    await state.set_state(PaymentStates.waiting_for_amount)
+    await callback.answer()
+

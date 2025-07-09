@@ -2,6 +2,9 @@ from aiogram import Router, types
 from aiogram.filters import Command
 from bot import bot, supabase
 
+from handlers.filter import load_info, save_info
+
+
 from aiogram.enums import ParseMode
 
 router = Router()
@@ -42,14 +45,19 @@ async def cmd_send_gift(message: types.Message):
         )
 
         if ok:
-            await message.reply("Подарок отправлен!")
             supabase.table("payments").insert({
                 "user_id": user_id,
-                "type": "deposit", 
+                "type": "purchase", 
                 "charge_id": None,
                 "stars": stars, 
                 "refunded": False
             }).execute()
+
+            info = await load_info(user_id)
+            updated_balance = info['balance'] - stars
+            save_info(user_id, {"balance": updated_balance})
+
+            await message.reply("Подарок отправлен!")
         else:
             await message.reply("Не удалось отправить подарок.")
     except Exception as e:

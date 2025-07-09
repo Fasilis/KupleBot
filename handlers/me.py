@@ -5,6 +5,8 @@ from aiogram.types import (InlineKeyboardMarkup,
                            ReplyKeyboardRemove)
 from bot import supabase
 from handlers.start import send_start_menu
+from handlers.filter import load_info, save_info
+
 
 
 router = Router()
@@ -35,9 +37,8 @@ async def handle_user_menu_callback(callback: types.CallbackQuery):
 
     if data == "Балик":
         try:
-            result = supabase.table("payments").select("*") \
-                .eq("user_id", user_id).eq("refunded", False).execute()
-            total = sum(tx["stars"] for tx in result.data)
+            info = await load_info(user_id)
+            total = info['balance']
             await callback.message.edit_text(f"💰 Ваш баланс: {total} звёзд.")
         except Exception as e:
             print(f"Ошибка показа баланса: {e}")
