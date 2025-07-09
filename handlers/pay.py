@@ -2,20 +2,42 @@ from aiogram import Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.types import LabeledPrice
+from aiogram.types import LabeledPrice, InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot import bot, supabase
 from config import PROVIDER_TOKEN
+from handlers.start import send_start_menu 
 
 router = Router()
 
 class PaymentStates(StatesGroup):
     waiting_for_amount = State()
 
-@router.message(Command("pay"))
-async def cmd_topup(message: types.Message, state: FSMContext):
-    await message.answer("Сколько звёзд пополнить?")
+async def send_payment_menu(chat_id: int):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Выйти", callback_data="exit_to_main")]
+    ])
+    await bot.send_message(chat_id, "Укажите количество звёзд для пополнения баланса ⭐️", reply_markup=kb)
+
+@router.callback_query(lambda c: c.data == "stub_pay")
+async def callback_topup_handler(callback: types.CallbackQuery, state: FSMContext):
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await send_payment_menu(callback.message.chat.id)
     await state.set_state(PaymentStates.waiting_for_amount)
+    await callback.answer()
+
+@router.callback_query(lambda c: c.data == "exit_to_main")
+async def exit_to_main_from_payment(callback: types.CallbackQuery, state: FSMContext):
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await send_start_menu(callback.message, with_banner=True)
+    await state.clear()
+    await callback.answer()
 
 @router.message(PaymentStates.waiting_for_amount)
 async def process_amount(message: types.Message, state: FSMContext):
@@ -26,12 +48,12 @@ async def process_amount(message: types.Message, state: FSMContext):
     except ValueError:
         return await message.answer("Введите корректное число больше 0.")
 
-    prices = [LabeledPrice(label=f"Пополнение {amount_stars} звёзд", amount=amount_stars)]
+    prices = [LabeledPrice(label=f"Пополнение {amount_stars} ⭐️", amount=amount_stars)]
 
     await bot.send_invoice(
         chat_id=message.chat.id,
         title="Пополнение звёзд",
-        description=f"Вы пополняете {amount_stars} звёзд",
+        description=f"Вы пополняете {amount_stars} ⭐️",
         payload=f"topup_{message.from_user.id}_{amount_stars}",
         provider_token=PROVIDER_TOKEN,
         currency="XTR",
@@ -59,12 +81,5 @@ async def successful_payment_handler(message: types.Message):
         "refunded": False
     }).execute()
 
-    await message.answer(f"Оплачено {stars} звёзд.")
-    
-@router.callback_query(lambda c: c.data == "stub_pay")
-async def callback_topup_handler(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.delete()
-    await callback.message.answer("Сколько звёзд пополнить?")
-    await state.set_state(PaymentStates.waiting_for_amount)
-    await callback.answer()
-
+    await message.answer(f"Оплачено {stars} ⭐️")
+    await send_start_menu(message, with_banner=True)

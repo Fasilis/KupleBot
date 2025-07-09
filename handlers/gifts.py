@@ -84,3 +84,42 @@ async def manual_refund_direct(message: types.Message):
     except Exception as e:
         print(f"Ошибка прямого рефанда: {e}")
         await message.answer("Произошла ошибка при попытке прямого рефанда.")
+
+@router.message(Command("send_channel"))
+async def cmd_send_channel_gift(message: types.Message):
+    args = message.text.split()
+
+    if len(args) < 3:
+        return await message.answer("/send_channel <chat_id или @username> <gift_id>")
+
+    chat_id = args[1]           
+    gift_id = args[2]
+
+    try:
+        gifts = await bot.get_available_gifts()
+        gift = next((g for g in gifts.gifts if g["id"] == gift_id), None)
+        if gift is None:
+            return await message.answer("🎁 Подарок с таким ID не найден в доступных.")
+
+        stars = gift["star_count"]
+
+        ok = await bot.send_gift(
+            gift_id=gift_id,
+            chat_id=chat_id,
+            text=f"t e s"
+        )
+
+        if ok:
+            await message.reply("✅ Подарок успешно отправлен в канал!")
+            supabase.table("payments").insert({
+                "chat_id": chat_id,
+                "type": "purchase",
+                "charge_id": None,
+                "stars": stars,
+                "refunded": False
+            }).execute()
+        else:
+            await message.reply("❌ Не удалось отправить подарок в канал.")
+    except Exception as e:
+        print(f"Ошибка при отправке подарка в канал: {e}")
+        await message.reply(f"🚨 Ошибка: {e}")

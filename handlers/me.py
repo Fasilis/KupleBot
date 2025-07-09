@@ -4,7 +4,8 @@ from aiogram.types import (InlineKeyboardMarkup,
                            InlineKeyboardButton, 
                            ReplyKeyboardRemove)
 from bot import supabase
-from handlers.start import get_start_menu
+from handlers.start import send_start_menu
+
 
 router = Router()
 
@@ -19,10 +20,13 @@ async def stub_profile_handler(callback: types.CallbackQuery):
             InlineKeyboardButton(text="🔙 Выйти", callback_data="Выйти")
         ]
     ])
-    await callback.message.edit_text("Личный кабинет", reply_markup=kb)
+    await callback.message.delete()
+    await callback.message.answer(
+        "👤 <b>Личный кабинет</b>\n\nВыберите действие ниже:",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
     await callback.answer()
-
-
 
 @router.callback_query(lambda c: c.data in ["Балик", "История транз", "Выйти"])
 async def handle_user_menu_callback(callback: types.CallbackQuery):
@@ -54,5 +58,5 @@ async def handle_user_menu_callback(callback: types.CallbackQuery):
             await callback.message.edit_text("Беда, не вижу историю")
             
     elif data == "Выйти":
-        text, keyboard = get_start_menu()
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await callback.message.delete() 
+        await send_start_menu(callback.message, with_banner=True)
