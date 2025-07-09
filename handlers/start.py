@@ -2,6 +2,7 @@ from aiogram import Router, types
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types import FSInputFile
+import os
 
 router = Router()
 
@@ -30,7 +31,7 @@ async def send_start_menu(message: types.Message, with_banner: bool = True):
     text, keyboard = get_start_menu()
 
     if with_banner:
-        banner = FSInputFile("static/KupleBotBanner.png")
+        banner = FSInputFile(os.path.abspath("static/KupleBotBanner.png"))
         await message.answer_photo(
             photo=banner,
             caption=text,
