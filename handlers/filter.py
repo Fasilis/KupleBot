@@ -30,20 +30,21 @@ def save_filter(user_id: int, updates: dict):
 
 
 
-async def load_settings(user_id: int) -> dict:
-    result = supabase.table("user_settings").select("*").eq("user_id", user_id).execute()
+async def load_info(user_id: int) -> dict:
+    result = supabase.table("user_info").select("*").eq("user_id", user_id).execute()
     if result.data:
         return result.data[0]
     else:
         default = {
             "user_id": user_id,
-            "notif_enabled": False
+            "notif_enabled": False,
+            "balance": 0
         }
-        supabase.table("user_settings").insert(default).execute()
+        supabase.table("user_info").insert(default).execute()
         return default
 
-def save_settings(user_id: int, updates: dict):
-    supabase.table("user_settings").update(updates).eq("user_id", user_id).execute()
+def save_info(user_id: int, updates: dict):
+    supabase.table("user_info").update(updates).eq("user_id", user_id).execute()
 
 
 
@@ -72,10 +73,10 @@ async def toggle_limited_filter(callback: types.CallbackQuery):
 async def send_filter_menu(target: types.Message | types.CallbackQuery):
     user_id = target.from_user.id if isinstance(target, types.CallbackQuery) else target.from_user.id
     filt = await load_filter(user_id) 
-    settings = await load_settings(user_id)
+    info = await load_info(user_id)
 
     only_limited = filt.get("only_limited", False)
-    notif_enabled = settings.get("notif_enabled", False)
+    notif_enabled = info.get("notif_enabled", False)
 
     markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✏️ Задать диапазон цен", callback_data="set_price_range")],
@@ -224,9 +225,9 @@ async def show_filtered_gifts(callback: types.CallbackQuery):
 @router.callback_query(F.data == "toggle_notif")
 async def toggle_notif(callback: types.CallbackQuery):
     user_id = callback.message.chat.id
-    settings = await load_settings(user_id)
-    new_value = not settings.get("notif_enabled", False)
-    save_settings(user_id, {"notif_enabled": new_value})
+    info = await load_info(user_id)
+    new_value = not info.get("notif_enabled", False)
+    save_info(user_id, {"notif_enabled": new_value})
     await send_filter_menu(callback)
 
         

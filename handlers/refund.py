@@ -3,6 +3,8 @@ from aiogram import Router, types
 from aiogram.filters import Command
 from bot import supabase, BOT_TOKEN
 
+from handlers.filter import load_info, save_info
+
 router = Router()
 
 @router.message(Command("refund"))
@@ -20,6 +22,7 @@ async def manual_refund(message: types.Message):
 
     if not result.data:
         return await message.answer("Транзакция не найдена или уже рефнута.")
+    tx = result.data[0]
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -31,6 +34,11 @@ async def manual_refund(message: types.Message):
 
         if result_api.get("ok"):
             supabase.table("payments").update({"refunded": True, "type": "refund"}).eq("charge_id", charge_id).execute()
+
+            info = await load_info(user_id)
+            updated_balance = info['balance'] - tx['stars']
+            save_info(user_id, {"balance": updated_balance})
+
             await message.answer("Рефанд выполнен успешно.")
         else:
             await message.answer(f"Ошибка при рефанде: {result_api.get('description')}")

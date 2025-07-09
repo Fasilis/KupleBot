@@ -6,6 +6,8 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime
 from handlers.button_builder import build_buttons, make_tx_text
+from handlers.filter import load_info, save_info
+
 
 router = Router()
 
@@ -43,6 +45,11 @@ async def handle_specific_refund(callback: types.CallbackQuery, callback_data: R
 
         if result_api.get("ok"):
             supabase.table("payments").update({"refunded": True, "type":"refund"}).eq("charge_id", charge_id).execute()
+
+            info = await load_info(user_id)
+            updated_balance = info['balance'] - tx['stars']
+            save_info(user_id, {"balance": updated_balance})
+
             await callback.message.edit_text(f"Рефнуто {tx['stars']}⭐")
         else:
             error_msg = result_api.get("description", "Ошибка при возврате средств")
