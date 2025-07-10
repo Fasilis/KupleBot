@@ -70,10 +70,10 @@ async def handle_transaction_list(callback: CallbackQuery):
             .eq("type", tx_type) \
             .order("created_at", desc=True).execute()
     if not result.data:
-        return await callback.answer("Нету транзакций")
+        return await callback.answer("Нету транзакций в выбранной категории")
     
     markup = build_buttons(0, result.data, f"transaction_{tx_type}:", make_tx_text, 8, 2)
-    await callback.message.answer("Ваши транзакции:", reply_markup=markup)
+    await callback.message.answer("Список транзакций по выбранной категории:", reply_markup=markup)
 
 
 

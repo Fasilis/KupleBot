@@ -43,9 +43,8 @@ def build_buttons(page: int, items: List, callback: str, make_text_func, items_p
         nav_buttons.append(InlineKeyboardButton(text=" ", callback_data="noop"))
 
     builder.inline_keyboard.append(nav_buttons)
+    builder.inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="транзакции")])
     return builder
-
-
 
 def make_tx_text(txs):
     type = {
