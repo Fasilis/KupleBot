@@ -23,6 +23,7 @@ def setup_routers(dp: Dispatcher):
 
 async def main():
     setup_routers(dp)
+    asyncio.create_task(detect.detect_gifts())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

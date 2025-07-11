@@ -31,7 +31,7 @@ async def send_start_menu(message: types.Message, with_banner: bool = True):
     text, keyboard = get_start_menu()
 
     if with_banner:
-        banner = FSInputFile(os.path.abspath("static/KupleBotBanner.png"))
+        banner = FSInputFile(os.path.join(os.path.dirname(__file__), "../static/KupleBotBanner.png"))
         await message.answer_photo(
             photo=banner,
             caption=text,
