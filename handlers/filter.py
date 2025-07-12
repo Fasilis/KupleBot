@@ -89,10 +89,8 @@ async def send_filter_menu(target: types.CallbackQuery | types.Message):
          InlineKeyboardButton(text="✏️ Задать диапазон цен", callback_data="set_price_range"),
          InlineKeyboardButton(text="🔍 Показать подарки", callback_data="show_filtered_gifts")
         ],
-        [
-          InlineKeyboardButton(text=f"{'🔔' if notif_enabled else '🔕'} Обнаружение новых подарков", callback_data="toggle_notif"),
-          InlineKeyboardButton(text="🔙 Выйти", callback_data="exit_to_main")
-        ]
+        [InlineKeyboardButton(text=f"{'🔔' if notif_enabled else '🔕'} Обнаружение новых подарков", callback_data="toggle_notif")],
+        [InlineKeyboardButton(text="🔙 Выйти", callback_data="exit_to_main")]
 
     ])
 
