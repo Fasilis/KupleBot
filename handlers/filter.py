@@ -4,7 +4,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.enums import ParseMode
 from bot import bot, supabase
-from handlers.start import get_start_menu 
 from handlers.start import send_start_menu 
 router = Router()
 
@@ -177,7 +176,7 @@ async def show_filtered_gifts(callback: types.CallbackQuery):
         await callback.message.delete()
 
         user_id = callback.from_user.id
-        filt = await load_filter(user_id)  # 🔄 берём фильтр из базы
+        filt = await load_filter(user_id)
 
         if not filt:
             return await callback.message.answer("Сначала установите фильтр.")

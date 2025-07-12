@@ -1,4 +1,6 @@
 from aiogram import Router, types, F
+import aiogram
+import aiogram.exceptions
 from bot import bot, supabase
 from handlers.filter import load_info, save_info
 from datetime import datetime
@@ -29,22 +31,30 @@ async def process_user(user_id, info, filters, sorted_gifts):
     while True:
         for gift in sorted_gifts:
             if await check_filter(gift, balance, filters):
-                try:
-                    #change to bot.send_gift() for real use
-                    await bot.send_message(
-                        user_id,
-                        f"SENT GIFT {gift.sticker.emoji} ({gift.star_count}) to {user_id}. Remaining: {balance - gift.star_count}\n{datetime.now().strftime('%H:%M:%S')}"
-                    )
+                try:                
+                    await bot.send_gift(gift.id, user_id)
 
                     balance -= gift.star_count
                     save_info(user_id, {"balance": balance})
-                    #TODO add "purchase" transactions
+
+                    supabase.table("payments").insert({
+                        "user_id": user_id,
+                        "type": "purchase", 
+                        "charge_id": None,
+                        "stars": gift.star_count, 
+                        "refunded": False
+                    }).execute()
 
                     info["balance"] = balance
 
                     break  
+                except aiogram.exceptions.TelegramBadRequest as e:
+                    if "Telegram server says - Bad Request: STARGIFT_USAGE_LIMITED" in str(e):
+                        sorted_gifts.remove(gift)
+                    else:
+                        print(f"TelegramBadRequest: {e}")
                 except Exception as e:
-                    print(f"Error sending gift to {user_id}: {e}")
+                    print(f"Unexpected error occurred: {e}")
         else:
             break 
 

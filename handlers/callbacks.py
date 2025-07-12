@@ -49,8 +49,10 @@ async def handle_specific_refund(callback: types.CallbackQuery, callback_data: R
             info = await load_info(user_id)
             updated_balance = info['balance'] - tx['stars']
             save_info(user_id, {"balance": updated_balance})
-
-            await callback.message.edit_text(f"Рефнуто {tx['stars']}⭐")
+            markup = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="transaction_type:deposit")]
+            ])
+            await callback.message.answer(f"Рефнуто {tx['stars']}⭐", reply_markup=markup)
         else:
             error_msg = result_api.get("description", "Ошибка при возврате средств")
             await callback.answer(f"Ошибка: {error_msg}", show_alert=True)
@@ -73,7 +75,9 @@ async def handle_transaction_list(callback: CallbackQuery):
         return await callback.answer("Нету транзакций в выбранной категории")
     
     markup = build_buttons(0, result.data, f"transaction_{tx_type}:", make_tx_text, 8, 2)
-    await callback.message.answer("Список транзакций по выбранной категории:", reply_markup=markup)
+
+    await callback.message.edit_text("Список транзакций по выбранной категории:", reply_markup=markup)
+
 
 
 
@@ -126,11 +130,17 @@ async def handle_transaction_item(callback: CallbackQuery):
     
     tx = result.data[0]
 
-    markup = InlineKeyboardMarkup(inline_keyboard=[])
+    
+    buttons = []
+
+
+    buttons.append(InlineKeyboardButton(text="🔙 Выйти", callback_data=f"transaction_type:{tx['type']}"))
+
     if not tx.get('refunded'):
-        markup.inline_keyboard.append([
-            InlineKeyboardButton(text="🔁 Вернуть звёзды", callback_data=RefundCallback(tx_id=tx['id']).pack())
-        ])
+        buttons.append(InlineKeyboardButton(text="🔁 Вернуть звёзды", callback_data=RefundCallback(tx_id=tx['id']).pack()))
+
+
+    markup = InlineKeyboardMarkup(inline_keyboard=[buttons])
 
     date = datetime.fromisoformat(tx['created_at']).strftime("%d.%m.%Y %H:%M") 
     text = ""
