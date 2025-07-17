@@ -5,6 +5,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.enums import ParseMode
 from bot import bot, supabase
 from handlers.start import send_start_menu 
+
 router = Router()
 
 class FilterStates(StatesGroup):
@@ -25,10 +26,10 @@ async def load_filter(user_id: int) -> dict:
         default = {
             "user_id": user_id,
             "min_price": 0,
-            "max_price": 9999999,
+            "max_price": 10000,
             "only_limited": False,
-            "min_emission": None,
-            "max_emission": None
+            "min_emission": 0,
+            "max_emission": 1000000
         }
         supabase.table("user_filters").insert(default).execute()
         return default
@@ -263,7 +264,6 @@ async def set_channels(callback: types.CallbackQuery):
 
     buttons = []
 
-    # Если есть каналы — добавляем кнопки каналов
     if channels:
         buttons.extend([
             [InlineKeyboardButton(text=ch["username"], callback_data=f"channel_{ch['id']}")]
@@ -273,7 +273,6 @@ async def set_channels(callback: types.CallbackQuery):
     else:
         title = "У вас пока нет каналов."
 
-    # Кнопка "добавить" — одна для всех случаев
     buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="stub_settings"), InlineKeyboardButton(text="➕ Добавить канал", callback_data="add_channel")])
 
 
@@ -292,14 +291,12 @@ async def channel_menu(callback: types.CallbackQuery):
     buttons = [
         [
             InlineKeyboardButton(text="❌ Удалить", callback_data="delete_channel"),
-            InlineKeyboardButton(text="✏️ Изменить", callback_data="edit_channel"),
         ],
         [
             InlineKeyboardButton(text="🔙 Назад", callback_data="set_channels"),
         ]
     ]
 
-    # Получаем username для показа
     ch_data = supabase.table("channels").select("*").eq("id", channel_id).single().execute().data
     username = ch_data["username"]
 
@@ -321,47 +318,6 @@ async def delete_channel(callback: types.CallbackQuery):
     await callback.answer("Канал удалён.")
     await set_channels(callback)
 
-@router.callback_query(F.data == "edit_channel")
-async def edit_channel(callback: types.CallbackQuery, state: FSMContext):
-    markup = InlineKeyboardMarkup(inline_keyboard=[
-     [InlineKeyboardButton(text="🔙 Назад", callback_data="set_channels")]
-    ])
-
-    user_id = callback.from_user.id
-    channel_id = channel_memory.get(user_id)
-
-    if not channel_id:
-        await callback.answer("Канал не найден.", show_alert=True)
-        return
-
-    await state.update_data(editing_channel_id=channel_id)
-    await state.set_state(ChannelFSM.waiting_for_new_username)
-    await callback.message.edit_text("✏️ Введите новый username канала:", reply_markup=markup)
-    await callback.answer()
-
-
-@router.message(ChannelFSM.waiting_for_new_username)
-async def receive_new_username(message: types.Message, state: FSMContext):
-    markup = InlineKeyboardMarkup(inline_keyboard=[
-     [InlineKeyboardButton(text="🔙 Назад", callback_data="set_channels")]
-    ])
-
-    data = await state.get_data()
-    channel_id = data.get("editing_channel_id")
-    new_username = message.text.strip()
-
-    if not new_username.startswith("@"):
-        await message.answer("⚠️ Username должен начинаться с @. Попробуйте снова.", reply_markup=markup)
-        return
-
-    username_clean = new_username[1:]
-
-    supabase.table("channels").update({"username": username_clean}).eq("id", channel_id).execute()
-
-    
-    await message.answer(f"✅ Канал обновлён: @{username_clean}", reply_markup=markup)
-    
-    await state.clear()
 
 @router.callback_query(F.data == "add_channel")
 async def add_channel(callback: types.CallbackQuery, state: FSMContext):
@@ -370,39 +326,66 @@ async def add_channel(callback: types.CallbackQuery, state: FSMContext):
     ])
 
     await state.set_state(ChannelFSM.waiting_for_channel_to_add)
-    await callback.message.edit_text("➕ Введите username нового канала (с @):", reply_markup=markup)
+    await callback.message.edit_text("➕ Введите @username нового канала (с новой строки, если несколько):", reply_markup=markup)
     await callback.answer()
 
 
 @router.message(ChannelFSM.waiting_for_channel_to_add)
 async def save_new_channels(message: types.Message, state: FSMContext):
     markup = InlineKeyboardMarkup(inline_keyboard=[
-     [InlineKeyboardButton(text="🔙 Назад", callback_data="set_channels")]
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="set_channels")]
     ])
-    
+
     user_id = message.from_user.id
     text = message.text.strip()
-
-    # Разбиваем по строкам и фильтруем пустые
     lines = [line.strip() for line in text.split("\n") if line.strip()]
 
-    # Проверяем, чтобы каждая строка начиналась с @
-    cleaned_usernames = []
+    valid_records = []
+    successful_usernames = []
+    failed_usernames = []
+    duplicate_usernames = []
+
+    existing = supabase.table("channels").select("username").eq("user_id", user_id).execute()
+    existing_usernames = {row["username"] for row in existing.data}
+
     for line in lines:
-        if line.startswith("@"):
-            cleaned_usernames.append(line[1:])  # убираем @
-        else:
+        if not line.startswith("@"):
             await message.answer(f"⚠️ Строка `{line}` должна начинаться с @.", reply_markup=markup)
             return
 
-    # Создаём записи для вставки
-    records = [{"user_id": user_id, "username": username} for username in cleaned_usernames]
+        username = line[1:]
 
-    # Добавляем в базу все сразу
-    supabase.table("channels").insert(records).execute()
+        if username in existing_usernames:
+            duplicate_usernames.append(username)
+            continue
 
-    joined = "\n".join(f"✅ Канал @{u} добавлен." for u in cleaned_usernames)
-    await message.answer(joined, reply_markup=markup)
+        try:
+            chat = await bot.get_chat(f"@{username}")
+            if chat.id and str(chat.id).startswith("-100") and chat.type == "channel":
+                valid_records.append({
+                    "id": chat.id,
+                    "user_id": user_id,
+                    "username": username
+                })
+                successful_usernames.append(username)
+            else:
+                failed_usernames.append(username)
+        except Exception:
+            failed_usernames.append(username)
+
+    if valid_records:
+        supabase.table("channels").insert(valid_records).execute()
+
+
+    msg = ""
+    if successful_usernames:
+        msg += "\n".join(f"✅ Канал @{u} добавлен." for u in successful_usernames) + "\n"
+    if duplicate_usernames:
+        msg += "\n".join(f"⚠️ Канал @{u} уже добавлен ранее." for u in duplicate_usernames) + "\n"
+    if failed_usernames:
+        msg += "\n".join(f"❌ Канал @{u} не найден." for u in failed_usernames)
+
+    await message.answer(msg.strip(), reply_markup=markup)
     await state.clear()
 
         

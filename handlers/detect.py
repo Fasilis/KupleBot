@@ -55,12 +55,11 @@ async def detect_gifts():
 
     while True:
         try:
-            await asyncio.sleep(30)
+            await asyncio.sleep(1)
             new_gifts = await check_for_new_gifts()
             if new_gifts:
                 await buy_while_available(new_gifts)
             else:
-                print("No gifts detected in the past 30 seconds")
+                print("No gifts detected in the past second")
         except Exception as e:
             print(f"Error during gift detection: {e}")
-            await asyncio.sleep(5)
