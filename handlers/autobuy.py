@@ -1,9 +1,7 @@
-from aiogram import Router, types, F
 import aiogram
 import aiogram.exceptions
 from bot import bot, supabase
 from handlers.filter import load_info, save_info
-from datetime import datetime
 import asyncio
 
 async def check_filter(gift, balance, filters):
@@ -25,15 +23,29 @@ async def check_filter(gift, balance, filters):
 
 
 
-async def process_user(user_id, info, filters, sorted_gifts):
+async def process_user(user_id, info, filters, sorted_gifts, exhausted_gifts):
     balance = info['balance']
+    
+    result = supabase.table("channels").select("username").eq("user_id", user_id).execute()
+    channels = [row["username"] for row in result.data]
+    has_channels = bool(channels)
+
+    current_channel_index = 0
+    made_purchase = False
 
     while True:
-        for gift in sorted_gifts:
+        for gift_index, gift in enumerate(sorted_gifts):
+            if gift.id in exhausted_gifts:
+                continue
             if await check_filter(gift, balance, filters):
-                try:                
-                    await bot.send_gift(gift.id, user_id)
-
+                try: 
+                    if has_channels:
+                        recipient = f"@{channels[min(gift_index, len(channels) - 1)]}"
+                        await bot.send_gift(gift.id, chat_id=recipient) 
+                    else:
+                        recipient = user_id
+                        await bot.send_gift(gift.id, user_id=recipient) 
+                                    
                     balance -= gift.star_count
                     save_info(user_id, {"balance": balance})
 
@@ -47,17 +59,26 @@ async def process_user(user_id, info, filters, sorted_gifts):
 
                     info["balance"] = balance
 
+                    made_purchase = True
+
                     break  
                 except aiogram.exceptions.TelegramBadRequest as e:
-                    if "Telegram server says - Bad Request: STARGIFT_USAGE_LIMITED" in str(e):
-                        sorted_gifts.remove(gift)
+                    if "STARGIFT_USAGE_LIMITED" in str(e):
+                        exhausted_gifts.add(gift.id)
+                        result = supabase.table("channels").select("*").eq("user_id", user_id).execute()
+                        if has_channels and current_channel_index < len(channels)-1:
+                            current_channel_index += 1
+                        continue
                     else:
                         print(f"TelegramBadRequest: {e}")
                 except Exception as e:
                     print(f"Unexpected error occurred: {e}")
+            else:
+                continue
         else:
             break 
 
+    return made_purchase
 
 
 async def buy_while_available(gifts):
@@ -68,6 +89,7 @@ async def buy_while_available(gifts):
     filters_map = {f['user_id']: f for f in user_filters_list}
 
     sorted_gifts = sorted(gifts, key=lambda g: g.star_count, reverse=True)
+    exhausted_gifts = set()
 
     while True:
         tasks = []
@@ -76,10 +98,15 @@ async def buy_while_available(gifts):
             filters = filters_map.get(user_id)
             if not filters:
                 continue
-
-            task = asyncio.create_task(process_user(user_id, info, filters, sorted_gifts))
+            task = asyncio.create_task(process_user(user_id, info, filters, sorted_gifts.copy(), exhausted_gifts))
             tasks.append(task)
 
-        await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks)
 
+        if all(gift.id in exhausted_gifts for gift in sorted_gifts):
+            print("🎁 All gifts exhausted — stopping loop.")
+            break
 
+        if not any(results):
+            print("⚠️ No purchases made — stopping loop.")
+            break
